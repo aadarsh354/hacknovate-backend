@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Prospect Enrichment</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background-color: #f3f4f6; color: #111827; padding: 20px; }
+        .container { max-width: 800px; margin: 40px auto; background: white; padding: 30px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
+        h1 { color: #1e3a8a; font-size: 28px; margin-bottom: 20px; }
+        
+        .form-row { display: flex; gap: 20px; margin-bottom: 20px; }
+        .input-group { flex: 1; display: flex; flex-direction: column; }
+        .input-group label { font-weight: 600; margin-bottom: 8px; font-size: 14px; }
+        .input-group input { padding: 12px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 16px; background-color: #f9fafb; }
+        
+        .button-group { display: flex; gap: 15px; align-items: center; margin-bottom: 20px; }
+        button { padding: 12px 24px; border: none; border-radius: 6px; font-weight: 600; font-size: 16px; cursor: pointer; transition: 0.2s; }
+        #enrich-btn { background-color: #1e3a8a; color: white; }
+        #enrich-btn:hover { background-color: #152c68; }
+        #enrich-btn:disabled { background-color: #9ca3af; cursor: not-allowed; }
+        #results-btn { background-color: #e5e7eb; color: #374151; }
+        
+        #loading { display: none; color: #2563eb; font-weight: 600; font-size: 16px; }
+        
+        .results-section { margin-top: 30px; border-top: 2px solid #f3f4f6; padding-top: 20px; }
+        .results-section h2 { font-size: 20px; margin-bottom: 15px; }
+        .output-box { background-color: #f9fafb; padding: 20px; border: 1px solid #e5e7eb; border-radius: 6px; min-height: 100px; font-family: monospace; white-space: pre-wrap; font-size: 14px; color: #4b5563; }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1>Prospect Enrichment</h1>
+        
+        <div class="form-row">
+            <div class="input-group">
+                <label>Company URL *</label>
+                <input type="text" id="url-input" placeholder="ENTER THE URL">
+            </div>
+            <div class="input-group">
+                <label>Website Name (Optional Record)</label>
+                <input type="text" id="name-input" placeholder="Acme Corp">
+            </div>
+        </div>
+
+        <div class="button-group">
+            <button id="enrich-btn" onclick="runEnrichment()">Enrich</button>
+            <button id="results-btn">Show All Results</button>
+        </div>
+
+        <div id="loading">Running pipeline... this takes a few seconds...</div>
+
+        <div class="results-section">
+            <h2>Enriched Data</h2>
+            <div id="results-box" class="output-box">No data yet.</div>
+        </div>
+    </div>
+
+    <script>
+        // 1. Point exactly to your local Flask backend
+        const API_BASE = "http://127.0.0.1:5000";
+
+        async function runEnrichment() {
+            const urlInput = document.getElementById("url-input").value.trim();
+            const loadingText = document.getElementById("loading");
+            const resultsBox = document.getElementById("results-box");
+            const enrichBtn = document.getElementById("enrich-btn");
+
+            if (!urlInput) {
+                alert("Please enter a Company URL.");
+                return;
+            }
+
+            // Lock UI and show loading text
+            loadingText.style.display = "block";
+            resultsBox.style.color = "#111827";
+            resultsBox.innerText = "Connecting to AI...";
+            enrichBtn.disabled = true;
+
+            try {
+                // 2. Send the URL to your Python backend
+                const response = await fetch(`${API_BASE}/enrich`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ url: urlInput })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`Server Error: ${response.status}`);
+                }
+
+                // 3. THIS IS THE FIX! We just pull the JSON directly from the response.
+                // No more searching for a fake /results page.
+                const aiData = await response.json();
+
+                // 4. Print the beautiful JSON to the screen!
+                resultsBox.innerText = JSON.stringify(aiData, null, 4);
+
+            } catch (error) {
+                console.error("Fetch Error:", error);
+                resultsBox.style.color = "red";
+                resultsBox.innerText = `Connection Failed.\n\nMake sure your VS Code terminal is actively running 'python app.py'.\n\nError details: ${error.message}`;
+            } finally {
+                // Unlock UI
+                loadingText.style.display = "none";
+                enrichBtn.disabled = false;
+            }
+        }
+    </script>
+</body>
+</html>
